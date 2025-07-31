@@ -1,0 +1,84 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+/yarn.lock
+/package-lock.json
+/bun.lockb
+
+# Testing
+/coverage
+/__tests__/*.js
+*.test.js
+*.spec.js
+
+# Production & Build files
+/build
+/dist
+/.next
+/out
+
+# Development
+/.vscode
+/.idea
+*.sublime-workspace
+*.sublime-project
+.DS_Store
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+
+# TypeScript
+*.tsbuildinfo
+/tsconfig.tsbuildinfo
+
+# Cache
+.cache/
+.npm
+.eslintcache
+.stylelintcache
+
+# Misc
+*.log
+*.csv
+*.dat
+*.out
+*.pid
+*.seed
+*.pid.lock
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+thumbs.db
+
+# Editor directories and files
+.idea/
+*.swp
+*.swo
+*.swn
+*.bak
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
