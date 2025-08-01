@@ -49,7 +49,7 @@ ini
 Copy
 Edit
 DBCONNECTION=<your_mongodb_url>
-PORT=3000
+PORT=5000
 SECRETKEY=<your_jwt_secret>
 CLOUDINARY_CLOUD_NAME=<cloudinary_name>
 CLOUDINARY_API_KEY=<cloudinary_api_key>
