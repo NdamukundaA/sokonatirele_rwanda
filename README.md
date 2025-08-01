@@ -37,7 +37,7 @@ cp .env.example .env
 
 4. Configure your .env file with required values:
 - DBCONNECTION=your_mongodb_url
-- PORT=5000
+- PORT=3000
 - SECRETKEY=your_secret_key
 - CLOUDINARY credentials
 - FLUTTERWAVE credentials
