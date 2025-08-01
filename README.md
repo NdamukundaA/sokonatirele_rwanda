@@ -46,18 +46,16 @@ Fill in the environment variables in .env:
 ini
 Copy
 Edit
-DBCONNECTION=your_mongodb_url
-PORT=5000
-SECRETKEY=your_secret_key
-
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-
-FLW_PUBLIC_KEY=your_flutterwave_public_key
-FLW_SECRET_KEY=your_flutterwave_secret_key
-FLW_ENCRYPTION_KEY=your_flutterwave_encryption_key
-Run the seed file to create default admin credentials:
+DBCONNECTION=<your_mongodb_url>
+PORT=3000
+SECRETKEY=<your_jwt_secret>
+CLOUDINARY_CLOUD_NAME=<cloudinary_name>
+CLOUDINARY_API_KEY=<cloudinary_api_key>
+CLOUDINARY_API_SECRET=<cloudinary_api_secret>
+FLW_PUBLIC_KEY=<flutterwave_public_key>
+FLW_SECRET_KEY=<flutterwave_secret_key>
+FLW_ENCRYPTION_KEY=<flutterwave_encryption_key>
+Seed the database with the default admin:
 
 bash
 Copy
