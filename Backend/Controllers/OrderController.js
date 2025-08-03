@@ -479,40 +479,55 @@ const getAllOrders = async (req, res) => {
 
 const updateOrderStatus = async (req, res) => {
   try {
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ success: false, message: 'Access denied. Admin privileges required' });
-    }
-
     const { orderId } = req.params;
     const { status, paymentStatus } = req.body;
+    
     console.log(`updateOrderStatus: orderId=${orderId}, status=${status}, paymentStatus=${paymentStatus}`);
 
+    // Validate orderId
     if (!mongoose.Types.ObjectId.isValid(orderId)) {
-      return res.status(400).json({ success: false, message: 'Invalid order ID format' });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid order ID'
+      });
     }
 
+    // Build update object
     const updateObj = {};
 
+    // Validate and set status
     if (status) {
       const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
       if (!validStatuses.includes(status)) {
-        return res.status(400).json({ success: false, message: `Status must be one of: ${validStatuses.join(', ')}` });
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid status value. Must be one of: ' + validStatuses.join(', ')
+        });
       }
       updateObj.status = status;
     }
 
+    // Validate and set payment status
     if (paymentStatus) {
-      const validPaymentStatuses = ['pending', 'completed', 'failed', 'refunded'];
+      const validPaymentStatuses = ['pending', 'processing', 'completed', 'failed', 'refunded'];
       if (!validPaymentStatuses.includes(paymentStatus)) {
-        return res.status(400).json({ success: false, message: `Payment status must be one of: ${validPaymentStatuses.join(', ')}` });
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid payment status value. Must be one of: ' + validPaymentStatuses.join(', ')
+        });
       }
       updateObj.paymentStatus = paymentStatus;
     }
 
+    // Ensure at least one field is being updated
     if (Object.keys(updateObj).length === 0) {
-      return res.status(400).json({ success: false, message: 'No valid update fields provided' });
+      return res.status(400).json({
+        success: false,
+        message: 'No valid fields to update'
+      });
     }
 
+    // Update the order
     const updatedOrder = await Order.findByIdAndUpdate(
       orderId,
       updateObj,
@@ -520,14 +535,19 @@ const updateOrderStatus = async (req, res) => {
     ).populate('address');
 
     if (!updatedOrder) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
     }
 
+    // Return success response
     res.status(200).json({
       success: true,
       message: 'Order updated successfully',
       order: updatedOrder
     });
+
   } catch (error) {
     console.error(`Error in updateOrderStatus for orderId=${req.params.orderId}:`, error);
     res.status(500).json({
@@ -535,7 +555,7 @@ const updateOrderStatus = async (req, res) => {
       message: error.message || 'Internal server error'
     });
   }
-};
+}
 
 const getOrderStatistics = async (req, res) => {
   try {

@@ -29,7 +29,14 @@ router.post('/flw-webhook', handleFlutterwaveWebhook);
 // Admin and  Seller routes
 router.get('/admin/getOrderDetails/:orderId', verifySellerToken, gettingOrderDetailsAdmin);
 router.get('/getAllOrders', verifySellerToken, getAllOrders);
-router.put('/updateOrderStatus/:orderId', verifySellerToken, updateOrderStatus);
+router.put('/updateOrderStatus/:orderId', verifySellerToken, (req, res) => {
+    console.log('Received update order request:', {
+      orderId: req.params.orderId,
+      body: req.body,
+      user: req.user
+    });
+    return updateOrderStatus(req, res);
+  });
 router.get('/getOrderStatistics', verifySellerToken, getOrderStatistics);
 router.put('/confirmCashPayment/:orderId', verifySellerToken, confirmCashPayment);
 router.get('/notifications', verifySellerToken, getNotifications);
