@@ -40,7 +40,7 @@ apiClient.interceptors.response.use(
 );
 
 
-// Admin Authentication APIs
+// Seller Authentication APIs
 export const loginAdmin = async (logindata: { email: string; password: string }) => {
   try {
     const response = await apiClient.post('/api/seller/login', logindata);

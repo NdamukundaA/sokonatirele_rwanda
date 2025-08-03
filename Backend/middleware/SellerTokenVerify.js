@@ -12,15 +12,21 @@ const verifySellerToken = (req, res, next) => {
             }
 
             // Check if the decoded token has isAdmin flag
-            if (!decoded.isAdmin) {
+            if (decoded.isAdmin !== true) {
                 return res.status(403).json({ message: 'Access denied. Admins only.' });
             }
 
             // Set both user and admin properties
-            req.user = decoded;
-            req.admin = decoded;
+            req.user = {
+                ...decoded,
+                id: decoded.adminId // Ensure id is set for compatibility
+            };
+            req.admin = {
+                ...decoded,
+                id: decoded.adminId
+            };
             req.adminId = decoded.adminId;
-            req.userId = decoded.adminId; // Ensure userId is also set for compatibility
+            req.userId = decoded.adminId;
 
             next();
         });

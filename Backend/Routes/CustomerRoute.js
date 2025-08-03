@@ -9,8 +9,8 @@ console.log('getAllCustomers:', getAllCustomers);
 console.log('getCustomerById:', getCustomerById);
 console.log('getCustomerOrders:', getCustomerOrders);
 
-router.get('/getAllCustomers', verifySellerToken, adminMiddleware, getAllCustomers);
-router.get('/getCustomerById/:id', verifySellerToken, adminMiddleware, getCustomerById);
-router.get('/getCustomerOrders/:id', verifySellerToken, adminMiddleware, getCustomerOrders);
+router.get('/getAllCustomers', verifySellerToken, getAllCustomers);
+router.get('/getCustomerById/:id', verifySellerToken, getCustomerById);
+router.get('/getCustomerOrders/:id', verifySellerToken, getCustomerOrders);
 
 module.exports = router;
