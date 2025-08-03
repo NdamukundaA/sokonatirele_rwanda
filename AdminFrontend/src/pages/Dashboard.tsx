@@ -1,32 +1,149 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Package, ShoppingBag, TrendingUp, UserCheck, Clock, CheckCircle, XCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { 
+  getAllOrders, 
+  getAllCustomers, 
+  getAllProducts, 
+  getAllSellers 
+} from "@/ApiConfiguration/ApiConfiguration";
+import { useToast } from "@/hooks/use-toast";
 
-// Dummy data
-const stats = {
-  totalSellers: 145,
-  pendingSellers: 12,
-  approvedSellers: 120,
-  rejectedSellers: 13,
-  totalCustomers: 2847,
-  totalProducts: 1289,
-  totalOrders: 456,
-  monthlyRevenue: 24580,
+interface DashboardStats {
+  totalSellers: number;
+  pendingSellers: number;
+  approvedSellers: number;
+  rejectedSellers: number;
+  totalCustomers: number;
+  totalProducts: number;
+  totalOrders: number;
+  monthlyRevenue: number;
+}
+
+interface RecentSeller {
+  _id: string;
+  fullName: string;
+  email: string;
+  status: string;
+  createdAt: string;
+}
+
+interface RecentOrder {
+  _id: string;
+  user_fullName: string;
+  amount: number;
+  status: string;
+  createdAt: string;
+}
+
+const initialStats: DashboardStats = {
+  totalSellers: 0,
+  pendingSellers: 0,
+  approvedSellers: 0,
+  rejectedSellers: 0,
+  totalCustomers: 0,
+  totalProducts: 0,
+  totalOrders: 0,
+  monthlyRevenue: 0
 };
 
-const recentSellers = [
-  { id: 1, name: "Fresh Mart Store", email: "freshmart@email.com", status: "pending", date: "2024-01-20" },
-  { id: 2, name: "Organic Valley", email: "organic@email.com", status: "pending", date: "2024-01-19" },
-  { id: 3, name: "Green Grocers", email: "green@email.com", status: "approved", date: "2024-01-18" },
-];
-
-const recentOrders = [
-  { id: "#ORD001", customer: "John Doe", amount: 45.99, status: "completed", date: "2024-01-20" },
-  { id: "#ORD002", customer: "Jane Smith", amount: 78.50, status: "processing", date: "2024-01-20" },
-  { id: "#ORD003", customer: "Mike Johnson", amount: 32.25, status: "pending", date: "2024-01-19" },
-];
-
 const Dashboard = () => {
+  const [stats, setStats] = useState<DashboardStats>(initialStats);
+  const [recentSellers, setRecentSellers] = useState<RecentSeller[]>([]);
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Fetch all data in parallel
+        const [ordersData, customersData, productsData, sellersData] = await Promise.all([
+          getAllOrders({ limit: 5 }),
+          getAllCustomers({ limit: 1 }),
+          getAllProducts({ limit: 1 }),
+          getAllSellers({ limit: 5 })
+        ]);
+
+        // Calculate monthly revenue from recent orders
+        // Calculate monthly revenue from all completed orders
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        
+        const monthlyRevenue = ordersData.orders
+          .filter((order: any) => {
+            const orderDate = new Date(order.createdAt);
+            return order.paymentStatus === 'completed' && 
+                   orderDate.getMonth() === currentMonth &&
+                   orderDate.getFullYear() === currentYear;
+          })
+          .reduce((sum: number, order: any) => sum + (order.amount || 0), 0);
+
+        // Get total number of products
+        const totalProducts = productsData.pagination?.totalItems || 
+                            productsData.products?.length || 
+                            productsData.productList?.length || 0;
+
+        // Update stats
+        setStats({
+          totalSellers: sellersData.pagination?.totalItems || sellersData.data?.length || 0,
+          pendingSellers: sellersData.data?.filter((s: any) => s.status === 'pending').length || 0,
+          approvedSellers: sellersData.data?.filter((s: any) => s.status === 'active').length || 0,
+          rejectedSellers: sellersData.data?.filter((s: any) => s.status === 'inactive').length || 0,
+          totalCustomers: customersData.totalCustomers || customersData.pagination?.totalItems || 0,
+          totalProducts: totalProducts,
+          totalOrders: ordersData.pagination?.totalItems || ordersData.orders?.length || 0,
+          monthlyRevenue: monthlyRevenue
+        });
+
+        // Set recent sellers
+        setRecentSellers(
+          sellersData.data?.slice(0, 3).map((seller: any) => ({
+            _id: seller._id,
+            fullName: seller.fullName,
+            email: seller.email,
+            status: seller.status,
+            createdAt: seller.createdAt
+          })) || []
+        );
+
+        // Set recent orders
+        setRecentOrders(
+          ordersData.orders?.slice(0, 3).map((order: any) => ({
+            _id: order._id,
+            user_fullName: order.user_fullName,
+            amount: order.amount,
+            status: order.status,
+            createdAt: order.createdAt
+          })) || []
+        );
+
+      } catch (error: any) {
+        console.error('Error fetching dashboard data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load dashboard data. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [toast]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -67,7 +184,16 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalProducts.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Across all categories</p>
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-muted-foreground">Available Products</p>
+              <p className="text-xs font-medium text-success">{stats.totalProducts.toLocaleString()}</p>
+            </div>
+            <div className="h-1 w-full bg-muted mt-2 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-success" 
+                style={{ width: `${(stats.totalProducts / (stats.totalProducts || 1)) * 100}%` }}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -78,7 +204,17 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">RWF {stats.monthlyRevenue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+8% from last month</p>
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-muted-foreground">From {stats.totalOrders} orders</p>
+              <p className="text-xs font-medium">
+                Avg: RWF {stats.totalOrders ? Math.round(stats.monthlyRevenue / stats.totalOrders).toLocaleString() : 0}
+              </p>
+            </div>
+            <div className="flex items-center gap-1 mt-1">
+              <p className="text-xs text-success">
+                {new Date().toLocaleString('default', { month: 'long' })} {new Date().getFullYear()}
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -125,15 +261,21 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {recentSellers.map((seller) => (
-              <div key={seller.id} className="flex items-center justify-between p-3 border rounded-lg">
+              <div key={seller._id} className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
-                  <p className="font-medium">{seller.name}</p>
+                  <p className="font-medium">{seller.fullName}</p>
                   <p className="text-sm text-muted-foreground">{seller.email}</p>
-                  <p className="text-xs text-muted-foreground">{seller.date}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(seller.createdAt).toLocaleDateString()}
+                  </p>
                 </div>
                 <Badge 
                   variant={seller.status === "pending" ? "secondary" : "default"}
-                  className={seller.status === "pending" ? "bg-pending text-pending-foreground" : ""}
+                  className={
+                    seller.status === "pending" ? "bg-pending text-pending-foreground" :
+                    seller.status === "active" ? "bg-success text-success-foreground" :
+                    "bg-destructive text-destructive-foreground"
+                  }
                 >
                   {seller.status}
                 </Badge>
@@ -150,19 +292,23 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {recentOrders.map((order) => (
-              <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg">
+              <div key={order._id} className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
-                  <p className="font-medium">{order.id}</p>
-                  <p className="text-sm text-muted-foreground">{order.customer}</p>
-                  <p className="text-xs text-muted-foreground">{order.date}</p>
+                  <p className="font-medium">#{order._id.slice(-6)}</p>
+                  <p className="text-sm text-muted-foreground">{order.user_fullName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(order.createdAt).toLocaleDateString()}
+                  </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium">RWF {order.amount}</p>
+                  <p className="font-medium">RWF {order.amount.toLocaleString()}</p>
                   <Badge 
                     variant={order.status === "completed" ? "default" : "secondary"}
                     className={
                       order.status === "completed" ? "bg-success text-success-foreground" :
                       order.status === "processing" ? "bg-warning text-warning-foreground" :
+                      order.status === "shipped" ? "bg-info text-info-foreground" :
+                      order.status === "cancelled" ? "bg-destructive text-destructive-foreground" :
                       "bg-pending text-pending-foreground"
                     }
                   >

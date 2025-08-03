@@ -1,87 +1,63 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, Eye, Mail, Phone, MapPin, Calendar, ShoppingBag } from "lucide-react";
+import { Search, Eye, Mail, Phone, MapPin, Calendar, ShoppingBag, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { getAllCustomers, User } from "@/ApiConfiguration/ApiConfiguration";
+import { useToast } from "@/hooks/use-toast";
 
-// Dummy customer data
-const customersData = [
-  {
-    id: 1,
-    name: "John Doe",
-    email: "john.doe@email.com",
-    phone: "+1234567890",
-    address: "123 Main St, City, State",
-    joinDate: "2024-01-15",
-    status: "active",
-    totalOrders: 45,
-    totalSpent: 1250.99,
-    lastOrder: "2024-01-20",
-  },
-  {
-    id: 2,
-    name: "Jane Smith",
-    email: "jane.smith@email.com",
-    phone: "+1234567891",
-    address: "456 Oak Ave, City, State",
-    joinDate: "2024-01-10",
-    status: "active",
-    totalOrders: 32,
-    totalSpent: 890.50,
-    lastOrder: "2024-01-19",
-  },
-  {
-    id: 3,
-    name: "Mike Johnson",
-    email: "mike.johnson@email.com",
-    phone: "+1234567892",
-    address: "789 Pine St, City, State",
-    joinDate: "2024-01-05",
-    status: "inactive",
-    totalOrders: 12,
-    totalSpent: 340.25,
-    lastOrder: "2024-01-01",
-  },
-  {
-    id: 4,
-    name: "Sarah Wilson",
-    email: "sarah.wilson@email.com",
-    phone: "+1234567893",
-    address: "321 Elm Dr, City, State",
-    joinDate: "2024-01-20",
-    status: "active",
-    totalOrders: 8,
-    totalSpent: 195.75,
-    lastOrder: "2024-01-21",
-  },
-  {
-    id: 5,
-    name: "David Brown",
-    email: "david.brown@email.com",
-    phone: "+1234567894",
-    address: "654 Maple Ln, City, State",
-    joinDate: "2023-12-28",
-    status: "active",
-    totalOrders: 67,
-    totalSpent: 2100.40,
-    lastOrder: "2024-01-18",
-  },
-];
+interface CustomerWithStats extends User {
+  ordersCount: number;
+  spent: number;
+  lastOrder: string;
+  address: string;
+}
 
 const Customers = () => {
-  const [customers, setCustomers] = useState(customersData);
+  const [customers, setCustomers] = useState<CustomerWithStats[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const handleViewDetails = (id: number) => {
+  const fetchCustomers = async () => {
+    try {
+      setIsLoading(true);
+      const response = await getAllCustomers({ 
+        page: currentPage, 
+        limit: 10,
+        search: searchTerm,
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+      });
+      setCustomers(response.customers);
+      setTotalPages(response.totalPages);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to fetch customers',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomers();
+  }, [currentPage]);
+
+  const handleViewDetails = (id: string) => {
     navigate(`/dashboard/customers/${id}`);
   };
 
   const filteredCustomers = customers.filter(customer => {
-    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = customer.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          customer.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || customer.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -89,9 +65,9 @@ const Customers = () => {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "active":
+      case "Active":
         return <Badge className="bg-success text-success-foreground">Active</Badge>;
-      case "inactive":
+      case "Inactive":
         return <Badge variant="secondary">Inactive</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
@@ -122,7 +98,7 @@ const Customers = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {customers.filter(c => c.status === "active").length}
+              {customers.filter(c => c.status === "Active").length}
             </div>
           </CardContent>
         </Card>
@@ -133,7 +109,7 @@ const Customers = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {customers.reduce((sum, c) => sum + c.totalOrders, 0)}
+              {customers.reduce((sum, c) => sum + c.ordersCount, 0)}
             </div>
           </CardContent>
         </Card>
@@ -144,7 +120,7 @@ const Customers = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              RWF {customers.reduce((sum, c) => sum + c.totalSpent, 0).toLocaleString()}
+              RWF {customers.reduce((sum, c) => sum + c.spent, 0).toLocaleString()}
             </div>
           </CardContent>
         </Card>
@@ -174,8 +150,8 @@ const Customers = () => {
               className="px-3 py-2 border border-input rounded-md bg-background"
             >
               <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
             </select>
           </div>
         </CardContent>
@@ -184,12 +160,12 @@ const Customers = () => {
       {/* Customers List */}
       <div className="grid gap-4">
         {filteredCustomers.map((customer) => (
-          <Card key={customer.id}>
+          <Card key={customer._id}>
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-3">
-                    <h3 className="text-lg font-semibold">{customer.name}</h3>
+                    <h3 className="text-lg font-semibold">{customer.fullName}</h3>
                     {getStatusBadge(customer.status)}
                   </div>
                   
@@ -200,26 +176,26 @@ const Customers = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <Phone className="h-4 w-4" />
-                      {customer.phone}
+                      {customer.phoneNumber}
                     </div>
                     <div className="flex items-center gap-2">
                       <MapPin className="h-4 w-4" />
-                      {customer.address}
+                      {customer.address || 'No address provided'}
                     </div>
                   </div>
                   
                   <div className="grid gap-2 md:grid-cols-3 lg:grid-cols-4 text-sm">
                     <div>
                       <p className="text-muted-foreground">Joined</p>
-                      <p className="font-medium">{customer.joinDate}</p>
+                      <p className="font-medium">{new Date(customer.createdAt).toLocaleDateString()}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Total Orders</p>
-                      <p className="font-medium">{customer.totalOrders}</p>
+                      <p className="font-medium">{customer.ordersCount}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Total Spent</p>
-                      <p className="font-medium">RWF {customer.totalSpent}</p>
+                      <p className="font-medium">RWF {customer.spent.toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Last Order</p>
@@ -232,7 +208,7 @@ const Customers = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleViewDetails(customer.id)}
+                    onClick={() => handleViewDetails(customer._id)}
                   >
                     <Eye className="h-4 w-4" />
                   </Button>

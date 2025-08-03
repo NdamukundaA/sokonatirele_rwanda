@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
+import { loginAdmin } from "@/ApiConfiguration/ApiConfiguration";
 import image2 from "/images/image2.jpg";
 
 const Login: React.FC = () => {
@@ -63,26 +64,43 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Dummy authentication - replace with your backend API
-      if (email === "admin@tasty-groceries.com" && password === "admin123") {
-        setLoadingProgress(100);
-        localStorage.setItem("adminToken", "dummy-admin-token");
+      await loginAdmin(email, password);
+      setLoadingProgress(100);
+      
+      const token = localStorage.getItem("authToken");
+      if (token) {
         toast({
           title: "Login Successful",
-          description: "Welcome to Tasty Groceries Admin Dashboard",
+          description: "Welcome to Isoko natirele Admin Dashboard",
         });
-        navigate("/dashboard");
+        console.log("Login successful, navigating to dashboard");
+        navigate("/dashboard", { replace: true });
       } else {
-        throw new Error("Invalid credentials");
+        throw new Error("Login failed - No token received");
       }
     } catch (error: any) {
-      const errorMessage = error.message || "Login failed. Please try again.";
+      // Clear any existing errors
+      setErrorMessages([]);
+      
+      // Get the error message
+      const errorMessage = error.message || "Invalid email or password";
+      
+      // Set the error message in the form
       setErrorMessages([errorMessage]);
+      
+      // Show error toast that doesn't auto-dismiss
       toast({
         title: "Login Failed",
         description: errorMessage,
         variant: "destructive",
+        duration: Infinity, // Make toast stay until user dismisses it
       });
+      
+      // Reset progress
+      setLoadingProgress(0);
+      
+      // Make sure error message stays in the form
+      setErrorMessages([errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -103,12 +121,30 @@ const Login: React.FC = () => {
           </div>
 
           {errorMessages.length > 0 && (
-            <div className="mb-4 p-4 bg-red-100 border border-red-400 rounded" aria-live="assertive">
-              <ul className="list-disc list-inside text-red-600">
-                {errorMessages.map((error, index) => (
-                  <li key={index}>{error}</li>
-                ))}
-              </ul>
+            <div 
+              className="mb-4 p-4 bg-destructive/10 border-2 border-destructive rounded-md" 
+              aria-live="assertive"
+              role="alert"
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-medium text-destructive mb-1">Login Error</p>
+                  <ul className="list-disc list-inside text-destructive">
+                    {errorMessages.map((error, index) => (
+                      <li key={index} className="text-sm">
+                        {error}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <button 
+                  onClick={() => setErrorMessages([])} 
+                  className="text-destructive hover:text-destructive/80"
+                  aria-label="Dismiss error"
+                >
+                  ×
+                </button>
+              </div>
             </div>
           )}
 
@@ -123,9 +159,12 @@ const Login: React.FC = () => {
                   type="email"
                   placeholder="admin@tasty-groceries.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setErrorMessages([]); // Clear errors when user types
+                  }}
                   disabled={isLoading}
-                  className={errorMessages.includes("Please provide an email") ? "border-red-500" : ""}
+                  className={errorMessages.length > 0 ? "border-destructive" : ""}
                 />
               </div>
               <div className="space-y-2">
@@ -179,7 +218,7 @@ const Login: React.FC = () => {
         />
         <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
           <div className="text-white text-center p-8">
-            <h2 className="text-4xl font-bold mb-4">Tasty Groceries Admin</h2>
+            <h2 className="text-4xl font-bold mb-4">Isoko Admin</h2>
             <p className="text-lg">
               Manage your store, products, and orders all in one place.
             </p>

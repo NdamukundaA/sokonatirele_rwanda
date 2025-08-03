@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import {
   Mail,
   Phone,
@@ -10,40 +11,86 @@ import {
   Calendar,
   ShoppingBag,
   ArrowLeft,
-  User,
+  User as UserIcon,
   DollarSign,
   Clock,
-  Package
+  Package,
+  Loader2
 } from "lucide-react";
+import { getCustomerById, getCustomerOrders, User } from '@/ApiConfiguration/ApiConfiguration';
 
-// Using the same dummy data for now
-const customersData = [
-  {
-    id: 1,
-    name: "John Doe",
-    email: "john.doe@email.com",
-    phone: "+1234567890",
-    address: "123 Main St, City, State",
-    joinDate: "2024-01-15",
-    status: "active",
-    totalOrders: 45,
-    totalSpent: 1250.99,
-    lastOrder: "2024-01-20",
-    recentOrders: [
-      { id: "ORD-001", date: "2024-01-20", amount: 150.00, status: "delivered" },
-      { id: "ORD-002", date: "2024-01-15", amount: 89.99, status: "delivered" },
-      { id: "ORD-003", date: "2024-01-10", amount: 200.50, status: "processing" }
-    ]
-  },
-  // ... other customers
-];
+interface UserWithStats {
+  _id: string;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  address?: string;
+  status: 'Active' | 'Inactive';
+  isAdmin: boolean;
+  createdAt: string;
+  updatedAt: string;
+  totalOrders?: number;
+  totalSpent?: number;
+  lastOrder?: string;
+  recentOrders?: {
+    id: string;
+    date: string;
+    amount: number;
+    status: string;
+  }[];
+}
 
 const CustomerDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
-  // Find customer by id
-  const customer = customersData.find(c => c.id === Number(id));
+  const { toast } = useToast();
+  const [customer, setCustomer] = useState<UserWithStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCustomer = async () => {
+      if (!id) return;
+      try {
+        const [customerData, orders] = await Promise.all([
+          getCustomerById(id),
+          getCustomerOrders(id)
+        ]);
+        
+        const customerWithStats: UserWithStats = {
+          ...customerData,
+          totalOrders: orders.length,
+          totalSpent: orders.reduce((sum, order) => sum + order.amount, 0),
+          lastOrder: orders.length > 0 ? new Date(orders[0].createdAt).toLocaleDateString() : '-',
+          recentOrders: orders.slice(0, 5).map(order => ({
+            id: order._id,
+            date: new Date(order.createdAt).toLocaleDateString(),
+            amount: order.amount,
+            status: order.status
+          }))
+        };
+        setCustomer(customerWithStats);
+      } catch (error: any) {
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to fetch customer details',
+          variant: 'destructive'
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCustomer();
+  }, [id, toast]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[400px] flex flex-col items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground mt-4">Loading customer details...</p>
+      </div>
+    );
+  }
 
   if (!customer) {
     return (
@@ -103,14 +150,14 @@ const CustomerDetails = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
+            <UserIcon className="h-5 w-5" />
             Basic Information
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div>
             <p className="text-sm text-muted-foreground">Full Name</p>
-            <p className="font-medium">{customer.name}</p>
+            <p className="font-medium">{customer.fullName}</p>
           </div>
           <div className="flex items-center gap-2">
             <Mail className="h-4 w-4 text-muted-foreground" />
@@ -118,15 +165,15 @@ const CustomerDetails = () => {
           </div>
           <div className="flex items-center gap-2">
             <Phone className="h-4 w-4 text-muted-foreground" />
-            <p className="font-medium">{customer.phone}</p>
+            <p className="font-medium">{customer.phoneNumber}</p>
           </div>
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-muted-foreground" />
-            <p className="font-medium">{customer.address}</p>
+            <p className="font-medium">{customer.address || 'No address provided'}</p>
           </div>
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
-            <p className="font-medium">Joined: {customer.joinDate}</p>
+            <p className="font-medium">Joined: {new Date(customer.createdAt).toLocaleDateString()}</p>
           </div>
         </CardContent>
       </Card>

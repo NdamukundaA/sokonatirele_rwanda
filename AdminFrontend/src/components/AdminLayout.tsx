@@ -1,30 +1,43 @@
-import { useEffect } from "react";
-import { useNavigate, Outlet } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { Button } from "@/components/ui/button";
-import { LogOut, User } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
+import { logoutAdmin } from "@/ApiConfiguration/ApiConfiguration";
+import { useEffect } from "react";
 
 const AdminLayout = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if admin is authenticated
-    const token = localStorage.getItem("adminToken");
+    const token = localStorage.getItem("authToken");
     if (!token) {
       navigate("/login");
     }
   }, [navigate]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("adminToken");
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out",
-    });
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await logoutAdmin();
+      localStorage.removeItem("authToken"); // Use authToken
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out",
+      });
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      localStorage.removeItem("authToken"); // Clear token on error
+      toast({
+        title: "Logout Failed",
+        description: "An error occurred while logging out",
+        variant: "destructive",
+      });
+      navigate("/login");
+    }
   };
 
   return (
@@ -41,10 +54,6 @@ const AdminLayout = () => {
             </div>
             
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <User className="h-4 w-4" />
-                <span>Admin User</span>
-              </div>
               <Button 
                 variant="outline" 
                 size="sm" 

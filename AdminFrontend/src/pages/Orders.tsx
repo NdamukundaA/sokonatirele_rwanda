@@ -1,95 +1,108 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, Eye, Package, Truck, CheckCircle, Clock, Calendar } from "lucide-react";
+import { Search, Eye, Package, Truck, CheckCircle, Clock, RefreshCw, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { getAllOrders, getOrderDetails, updateOrderStatus } from "@/ApiConfiguration/ApiConfiguration";
 
-// Dummy order data
-const ordersData = [
-  {
-    id: "#ORD001",
-    customer: "John Doe",
-    customerEmail: "john.doe@email.com",
-    items: 3,
-    total: 45.99,
-    status: "completed",
-    orderDate: "2024-01-20",
-    deliveryDate: "2024-01-22",
-    seller: "Fresh Mart Store",
-    paymentMethod: "Credit Card",
-    shippingAddress: "123 Main St, City, State",
-  },
-  {
-    id: "#ORD002",
-    customer: "Jane Smith",
-    customerEmail: "jane.smith@email.com",
-    items: 5,
-    total: 78.50,
-    status: "processing",
-    orderDate: "2024-01-20",
-    deliveryDate: "2024-01-23",
-    seller: "Organic Valley",
-    paymentMethod: "PayPal",
-    shippingAddress: "456 Oak Ave, City, State",
-  },
-  {
-    id: "#ORD003",
-    customer: "Mike Johnson",
-    customerEmail: "mike.johnson@email.com",
-    items: 2,
-    total: 32.25,
-    status: "pending",
-    orderDate: "2024-01-19",
-    deliveryDate: "2024-01-22",
-    seller: "Dairy Delights",
-    paymentMethod: "Credit Card",
-    shippingAddress: "789 Pine St, City, State",
-  },
-  {
-    id: "#ORD004",
-    customer: "Sarah Wilson",
-    customerEmail: "sarah.wilson@email.com",
-    items: 1,
-    total: 12.99,
-    status: "shipped",
-    orderDate: "2024-01-18",
-    deliveryDate: "2024-01-21",
-    seller: "Gourmet Foods",
-    paymentMethod: "Debit Card",
-    shippingAddress: "321 Elm Dr, City, State",
-  },
-  {
-    id: "#ORD005",
-    customer: "David Brown",
-    customerEmail: "david.brown@email.com",
-    items: 4,
-    total: 67.80,
-    status: "cancelled",
-    orderDate: "2024-01-17",
-    deliveryDate: null,
-    seller: "Fresh Mart Store",
-    paymentMethod: "Credit Card",
-    shippingAddress: "654 Maple Ln, City, State",
-  },
-];
+interface OrderData {
+  _id: string;
+  user_fullName: string;
+  user_email: string;
+  products: Array<{
+    productId: string;
+    productQuantity: number;
+    price: number;
+    productName: string;
+  }>;
+  amount: number;
+  status: string;
+  paymentStatus: string;
+  paymentType: string;
+  createdAt: string;
+  address?: {
+    streetAddress: string;
+    city: string;
+    phoneNumber: string;
+  };
+}
+
+interface OrderStats {
+  total: number;
+  pending: number;
+  processing: number;
+  shipped: number;
+  delivered: number;
+  completed: number;
+  cancelled: number;
+  totalRevenue: number;
+}
+
+// Constants for status badges
+const getStatusBadge = (status: string) => {
+  const statusConfig = {
+    pending: { bg: "bg-pending", text: "text-pending-foreground", icon: Clock },
+    processing: { bg: "bg-warning", text: "text-warning-foreground", icon: Package },
+    shipped: { bg: "bg-primary", text: "text-primary-foreground", icon: Truck },
+    delivered: { bg: "bg-success", text: "text-success-foreground", icon: CheckCircle },
+    cancelled: { bg: "bg-destructive", text: "text-destructive-foreground", icon: Clock },
+  };
+
+  const config = statusConfig[status.toLowerCase() as keyof typeof statusConfig] || statusConfig.pending;
+  const IconComponent = config.icon;
+
+  return (
+    <Badge className={`${config.bg} ${config.text} flex items-center gap-1`}>
+      <IconComponent className="h-3 w-3" />
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </Badge>
+  );
+};
 
 const Orders = () => {
-  const [orders, setOrders] = useState(ordersData);
+  const [orders, setOrders] = useState<OrderData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchOrders();
+  }, [page]);
+
+  const fetchOrders = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const { orders: fetchedOrders, pagination } = await getAllOrders({
+        page,
+        limit: 20,
+        search: searchTerm
+      });
+      setOrders(fetchedOrders);
+      setTotalPages(pagination.totalPages);
+    } catch (err: any) {
+      setError(err.message);
+      console.error('Error fetching orders:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleViewDetails = (id: string) => {
     navigate(`/dashboard/orders/${id.replace('#', '')}`);
   };
 
   const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.seller.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+    const matchesSearch = order._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         order.user_fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         order.user_email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "all" || order.status.toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
   });
 
@@ -113,21 +126,18 @@ const Orders = () => {
     );
   };
 
-  const getOrderStats = () => {
-    return {
-      total: orders.length,
-      pending: orders.filter(o => o.status === "pending").length,
-      processing: orders.filter(o => o.status === "processing").length,
-      shipped: orders.filter(o => o.status === "shipped").length,
-      completed: orders.filter(o => o.status === "completed").length,
-      cancelled: orders.filter(o => o.status === "cancelled").length,
-      totalRevenue: orders
-        .filter(o => o.status !== "cancelled")
-        .reduce((sum, order) => sum + order.total, 0),
-    };
+  const stats: OrderStats = {
+    total: orders.length,
+    pending: orders.filter(o => o.status.toLowerCase() === "pending").length,
+    processing: orders.filter(o => o.status.toLowerCase() === "processing").length,
+    shipped: orders.filter(o => o.status.toLowerCase() === "shipped").length,
+    delivered: orders.filter(o => o.status.toLowerCase() === "delivered").length,
+    completed: orders.filter(o => o.status.toLowerCase() === "completed").length,
+    cancelled: orders.filter(o => o.status.toLowerCase() === "cancelled").length,
+    totalRevenue: orders
+      .filter(o => o.status.toLowerCase() !== "cancelled")
+      .reduce((sum, order) => sum + order.amount, 0)
   };
-
-  const stats = getOrderStats();
 
   return (
     <div className="space-y-6">
@@ -259,62 +269,59 @@ const Orders = () => {
       {/* Orders List */}
       <div className="grid gap-4">
         {filteredOrders.map((order) => (
-          <Card key={order.id}>
+          <Card key={order._id}>
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-3">
-                    <h3 className="text-lg font-semibold">{order.id}</h3>
+                    <h3 className="text-lg font-semibold">#{order._id}</h3>
                     {getStatusBadge(order.status)}
                   </div>
                   
                   <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4 text-sm mb-3">
                     <div>
                       <p className="text-muted-foreground">Customer</p>
-                      <p className="font-medium">{order.customer}</p>
-                      <p className="text-xs text-muted-foreground">{order.customerEmail}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Seller</p>
-                      <p className="font-medium">{order.seller}</p>
+                      <p className="font-medium">{order.user_fullName}</p>
+                      <p className="text-xs text-muted-foreground">{order.user_email}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Items / Total</p>
-                      <p className="font-medium">{order.items} items • RWF {order.total}</p>
+                      <p className="font-medium">{order.products.length} items • RWF {order.amount.toFixed(2)}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Payment</p>
-                      <p className="font-medium">{order.paymentMethod}</p>
+                      <p className="text-muted-foreground">Payment Method</p>
+                      <p className="font-medium">{order.paymentType}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Payment Status</p>
+                      <p className="font-medium">{order.paymentStatus}</p>
                     </div>
                   </div>
                   
                   <div className="grid gap-2 md:grid-cols-2 text-sm">
                     <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <Clock className="h-4 w-4 text-muted-foreground" />
                       <span className="text-muted-foreground">Order Date:</span>
-                      <span className="font-medium">{order.orderDate}</span>
+                      <span className="font-medium">{new Date(order.createdAt).toLocaleDateString()}</span>
                     </div>
-                    {order.deliveryDate && (
-                      <div className="flex items-center gap-2">
-                        <Truck className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Delivery Date:</span>
-                        <span className="font-medium">{order.deliveryDate}</span>
-                      </div>
-                    )}
                   </div>
                   
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    <strong>Shipping Address:</strong> {order.shippingAddress}
-                  </div>
+                  {order.address && (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      <strong>Shipping Address:</strong> {order.address.streetAddress}, {order.address.city}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-2 ml-4">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleViewDetails(order.id)}
+                    onClick={() => handleViewDetails(order._id)}
+                    className="gap-2"
                   >
                     <Eye className="h-4 w-4" />
+                    View Details
                   </Button>
                 </div>
               </div>

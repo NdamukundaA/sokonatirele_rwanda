@@ -1,80 +1,75 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  ArrowLeft,
-  Package,
-  Truck,
-  CheckCircle,
+import { getOrderDetails } from '@/ApiConfiguration/ApiConfiguration';
+import { 
+  ArrowLeft, 
+  Edit, 
+  Package, 
+  Truck, 
+  CheckCircle, 
   Clock,
-  Calendar,
+  RefreshCw,
   User,
-  Mail,
-  Phone,
-  MapPin,
-  CreditCard,
-  Store,
   ShoppingCart,
-  Edit,
-  AlertCircle
+  AlertCircle 
 } from "lucide-react";
 
-// Using the same dummy data with extended information
-const ordersData = [
-  {
-    id: "#ORD001",
-    customer: "John Doe",
-    customerEmail: "john.doe@email.com",
-    customerPhone: "+1234567890",
-    items: [
-      {
-        id: 1,
-        name: "Fresh Red Apples",
-        quantity: 2,
-        price: 2.99,
-        total: 5.98,
-        image: "/images/products/fresh-apples.jpg"
-      },
-      {
-        id: 2,
-        name: "Organic Spinach",
-        quantity: 1,
-        price: 3.49,
-        total: 3.49,
-        image: "/images/products/organic-spinach.jpg"
-      }
-    ],
-    total: 45.99,
-    subtotal: 42.99,
-    shipping: 3.00,
-    status: "completed",
-    orderDate: "2024-01-20",
-    deliveryDate: "2024-01-22",
-    seller: "Fresh Mart Store",
-    sellerEmail: "freshmart@store.com",
-    paymentMethod: "Credit Card",
-    cardLast4: "4242",
-    shippingAddress: "123 Main St, City, State",
-    billingAddress: "123 Main St, City, State",
-    trackingNumber: "TRK123456789",
-    notes: "Please leave at the front door",
-    statusHistory: [
-      { status: "pending", date: "2024-01-20 09:00 AM", note: "Order placed" },
-      { status: "processing", date: "2024-01-20 10:30 AM", note: "Payment confirmed" },
-      { status: "shipped", date: "2024-01-21 02:00 PM", note: "Package shipped via Express Delivery" },
-      { status: "completed", date: "2024-01-22 11:45 AM", note: "Delivered to customer" }
-    ]
-  },
-  // ... other orders
-];
+interface OrderData {
+  _id: string;
+  user_fullName: string;
+  user_email: string;
+  products: Array<{
+    productId: string;
+    productQuantity: number;
+    price: number;
+    productName: string;
+    productImage?: string;
+  }>;
+  amount: number;
+  status: string;
+  paymentStatus: string;
+  paymentType: string;
+  createdAt: string;
+  address?: {
+    streetAddress: string;
+    city: string;
+    phoneNumber: string;
+  };
+}
 
 const OrderDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
-  const order = ordersData.find(o => o.id === `#${id}`);
+  const [order, setOrder] = useState<OrderData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (id) {
+      fetchOrderDetails(id);
+    }
+  }, [id]);
+
+  const fetchOrderDetails = async (orderId: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await getOrderDetails(orderId);
+      if (data.order) {
+        setOrder(data.order);
+      } else {
+        setOrder(data); // handle case where order is directly in the response
+      }
+    } catch (err: any) {
+      setError(err.message);
+      console.error('Error fetching order details:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (!order) {
     return (
@@ -136,7 +131,7 @@ const OrderDetails = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>Order {order.id}</span>
+              <span>Order #{order._id}</span>
               {getStatusBadge(order.status)}
             </CardTitle>
           </CardHeader>
@@ -145,27 +140,21 @@ const OrderDetails = () => {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Order Date</p>
-                  <p className="font-medium">{order.orderDate}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Delivery Date</p>
-                  <p className="font-medium">{order.deliveryDate || 'N/A'}</p>
+                  <p className="font-medium">{new Date(order.createdAt).toLocaleDateString()}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Total Amount</p>
-                  <p className="font-medium">RWF {order.total}</p>
+                  <p className="font-medium">RWF {order.amount.toFixed(2)}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Payment Method</p>
-                  <p className="font-medium">{order.paymentMethod}</p>
+                  <p className="font-medium">{order.paymentType}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Payment Status</p>
+                  <p className="font-medium">{order.paymentStatus}</p>
                 </div>
               </div>
-              {order.trackingNumber && (
-                <div className="pt-4 border-t">
-                  <p className="text-sm text-muted-foreground">Tracking Number</p>
-                  <p className="font-medium">{order.trackingNumber}</p>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -181,22 +170,26 @@ const OrderDetails = () => {
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-muted-foreground">Name</p>
-                <p className="font-medium">{order.customer}</p>
+                <p className="font-medium">{order.user_fullName}</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Email</p>
-                  <p className="font-medium">{order.customerEmail}</p>
+                  <p className="font-medium">{order.user_email}</p>
                 </div>
+                {order.address && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Phone</p>
+                    <p className="font-medium">{order.address.phoneNumber}</p>
+                  </div>
+                )}
+              </div>
+              {order.address && (
                 <div>
-                  <p className="text-sm text-muted-foreground">Phone</p>
-                  <p className="font-medium">{order.customerPhone}</p>
+                  <p className="text-sm text-muted-foreground">Shipping Address</p>
+                  <p className="font-medium">{order.address.streetAddress}, {order.address.city}</p>
                 </div>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Shipping Address</p>
-                <p className="font-medium">{order.shippingAddress}</p>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -212,13 +205,13 @@ const OrderDetails = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {order.items.map((item) => (
-              <div key={item.id} className="flex items-center gap-4 py-4 border-b last:border-0">
+            {order.products.map((item, index) => (
+              <div key={index} className="flex items-center gap-4 py-4 border-b last:border-0">
                 <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
-                  {item.image ? (
+                  {item.productImage ? (
                     <img
-                      src={item.image}
-                      alt={item.name}
+                      src={item.productImage}
+                      alt={item.productName}
                       className="w-full h-full object-cover rounded-lg"
                     />
                   ) : (
@@ -226,82 +219,25 @@ const OrderDetails = () => {
                   )}
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-medium">{item.name}</h4>
+                  <h4 className="font-medium">{item.productName}</h4>
                   <p className="text-sm text-muted-foreground">
-                    Quantity: {item.quantity} × RWF {item.price}
+                    Quantity: {item.productQuantity} × RWF {item.price.toFixed(2)}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium">RWF {item.total}</p>
+                  <p className="font-medium">RWF {(item.price * item.productQuantity).toFixed(2)}</p>
                 </div>
               </div>
             ))}
-            <div className="pt-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span className="font-medium">RWF {order.subtotal}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Shipping</span>
-                <span className="font-medium">RWF {order.shipping}</span>
-              </div>
+            <div className="pt-4">
               <div className="flex justify-between text-lg font-bold pt-2 border-t">
                 <span>Total</span>
-                <span>RWF {order.total}</span>
+                <span>RWF {order.amount.toFixed(2)}</span>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Order Timeline */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Order Timeline
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="relative space-y-4">
-            {order.statusHistory.map((event, index) => (
-              <div key={index} className="flex gap-4">
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center 
-                    ${event.status === order.status ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                    <Clock className="h-4 w-4" />
-                  </div>
-                  {index < order.statusHistory.length - 1 && (
-                    <div className="w-0.5 h-full bg-border mt-2" />
-                  )}
-                </div>
-                <div className="flex-1 pb-4">
-                  <p className="font-medium">
-                    {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{event.date}</p>
-                  <p className="text-sm text-muted-foreground">{event.note}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Notes */}
-      {order.notes && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" />
-              Order Notes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">{order.notes}</p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };

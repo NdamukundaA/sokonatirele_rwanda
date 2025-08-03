@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, Package, Search } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Search, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,77 +18,52 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-// Dummy category data
-const categoriesData = [
-  {
-    id: 1,
-    name: "Fruits & Vegetables",
-    description: "Fresh fruits and vegetables from local farms",
-    productCount: 245,
-    image: "/images/categories/fruits-vegetables.jpg",
-    status: "active",
-    averagePrice: 5.99, // Added for currency demonstration
-  },
-  {
-    id: 2,
-    name: "Dairy & Eggs",
-    description: "Fresh dairy products, milk, cheese, and eggs",
-    productCount: 89,
-    image: "/images/categories/dairy-eggs.jpg",
-    status: "active",
-    averagePrice: 3.49,
-  },
-  {
-    id: 3,
-    name: "Meat & Seafood",
-    description: "Fresh meat, poultry, and seafood products",
-    productCount: 156,
-    image: "/images/categories/meat-seafood.jpg",
-    status: "active",
-    averagePrice: 12.99,
-  },
-  {
-    id: 4,
-    name: "Bakery",
-    description: "Fresh bread, pastries, and baked goods",
-    productCount: 78,
-    image: "/images/categories/bakery.jpg",
-    status: "active",
-    averagePrice: 4.29,
-  },
-  {
-    id: 5,
-    name: "Pantry Staples",
-    description: "Grains, rice, pasta, and cooking essentials",
-    productCount: 198,
-    image: "/images/categories/pantry.jpg",
-    status: "active",
-    averagePrice: 2.99,
-  },
-  {
-    id: 6,
-    name: "Beverages",
-    description: "Juices, soft drinks, water, and other beverages",
-    productCount: 134,
-    image: "/images/categories/beverages.jpg",
-    status: "active",
-    averagePrice: 1.99,
-  },
-];
+import {
+  Category,
+  CategoryFormData,
+  getAllCategories,
+  addCategory,
+  updateCategory,
+  deleteCategory,
+  getProductsByCategory
+} from "@/ApiConfiguration/ApiConfiguration";
 
 const Categories = () => {
-  const [categories, setCategories] = useState(categoriesData);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null);
-  const [formData, setFormData] = useState({
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState<CategoryFormData>({
     name: "",
     description: "",
-    image: "",
-    averagePrice: 0,
+    image: undefined,
+    status: "active"
   });
-  const [currency, setCurrency] = useState("RWF"); // New state for currency
+  const [currency, setCurrency] = useState("RWF");
   const { toast } = useToast();
+
+  // Fetch categories on component mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getAllCategories();
+      setCategories(data);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to fetch categories",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Conversion rate: 1 USD = 1300 RWF (approximate, as of 2025)
   const convertPrice = (price) => {
@@ -103,60 +79,87 @@ const Categories = () => {
 
   const handleAddCategory = () => {
     setEditingCategory(null);
-    setFormData({ name: "", description: "", image: "", averagePrice: 0 });
+    setFormData({
+      name: "",
+      description: "",
+      image: undefined,
+      status: "active"
+    });
     setIsDialogOpen(true);
   };
 
-  const handleEditCategory = (category) => {
+  const handleEditCategory = (category: Category) => {
     setEditingCategory(category);
     setFormData({
       name: category.name,
       description: category.description,
-      image: category.image,
-      averagePrice: category.averagePrice,
+      status: category.status,
+      image: undefined
     });
     setIsDialogOpen(true);
   };
 
-  const handleDeleteCategory = (id) => {
-    setCategories((prev) => prev.filter((cat) => cat.id !== id));
-    toast({
-      title: "Category Deleted",
-      description: "Category has been successfully deleted",
-    });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    if (editingCategory) {
-      setCategories((prev) =>
-        prev.map((cat) =>
-          cat.id === editingCategory.id
-            ? { ...cat, ...formData }
-            : cat
-        )
-      );
+  const handleDeleteCategory = async (id: string) => {
+    try {
+      await deleteCategory(id);
+      setCategories((prev) => prev.filter((cat) => cat._id !== id));
       toast({
-        title: "Category Updated",
-        description: "Category has been successfully updated",
+        title: "Success",
+        description: "Category has been successfully deleted",
       });
-    } else {
-      const newCategory = {
-        id: Date.now(),
-        ...formData,
-        productCount: 0,
-        status: "active",
-      };
-      setCategories((prev) => [...prev, newCategory]);
+    } catch (error: any) {
       toast({
-        title: "Category Created",
-        description: "New category has been successfully created",
+        title: "Error",
+        description: error.message || "Failed to delete category",
+        variant: "destructive",
       });
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
     
-    setIsDialogOpen(false);
-    setFormData({ name: "", description: "", image: "", averagePrice: 0 });
+    try {
+      if (editingCategory) {
+        const response = await updateCategory(editingCategory._id, formData);
+        setCategories((prev) =>
+          prev.map((cat) =>
+            cat._id === editingCategory._id
+              ? response.category
+              : cat
+          )
+        );
+        toast({
+          title: "Success",
+          description: "Category has been successfully updated",
+        });
+      } else {
+        const response = await addCategory(formData);
+        setCategories((prev) => [...prev, response.category]);
+        toast({
+          title: "Success",
+          description: "New category has been successfully created",
+        });
+      }
+      
+      setIsDialogOpen(false);
+      setFormData({
+        name: "",
+        description: "",
+        image: undefined,
+        status: "active"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save category",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+      setIsDialogOpen(false);
+    }
   };
 
   const filteredCategories = categories.filter(
@@ -196,18 +199,11 @@ const Categories = () => {
             <CardTitle className="text-sm font-medium">Total Categories</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{categories.length}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {categories.reduce((sum, cat) => sum + cat.productCount, 0)}
-            </div>
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <div className="text-2xl font-bold">{categories.length}</div>
+            )}
           </CardContent>
         </Card>
         
@@ -216,9 +212,28 @@ const Categories = () => {
             <CardTitle className="text-sm font-medium">Active Categories</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {categories.filter((cat) => cat.status === "active").length}
-            </div>
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <div className="text-2xl font-bold">
+                {categories.filter((cat) => cat.status === "active").length}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Inactive Categories</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <div className="text-2xl font-bold">
+                {categories.filter((cat) => cat.status === "inactive").length}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -240,24 +255,33 @@ const Categories = () => {
 
       {/* Categories Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {filteredCategories.map((category) => (
-          <Card key={category.id} className="overflow-hidden">
+        {isLoading ? (
+          <div className="col-span-3 flex items-center justify-center min-h-[200px]">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : filteredCategories.map((category) => (
+          <Card key={category._id} className="overflow-hidden">
             <div className="h-48 bg-muted overflow-hidden">
-              <img
-                src={category.image}
-                alt={category.name}
-                className="w-full h-full object-cover hover:scale-105 transition-transform"
-              />
+              {category.image ? (
+                <img
+                  src={category.image}
+                  alt={category.name}
+                  className="w-full h-full object-cover hover:scale-105 transition-transform"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-muted">
+                  <Package className="h-12 w-12 text-muted-foreground" />
+                </div>
+              )}
             </div>
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
                   <CardTitle className="text-lg">{category.name}</CardTitle>
-                  <CardDescription className="text-sm">
-                    {category.productCount} products
-                  </CardDescription>
-                  <CardDescription className="text-sm">
-                    Avg. Price: {getCurrencySymbol()} {convertPrice(category.averagePrice)}
+                  <CardDescription className="text-sm flex items-center gap-2">
+                    <Badge variant={category.status === 'active' ? 'default' : 'secondary'}>
+                      {category.status}
+                    </Badge>
                   </CardDescription>
                 </div>
                 <div className="flex gap-1">
@@ -271,7 +295,7 @@ const Categories = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleDeleteCategory(category.id)}
+                    onClick={() => handleDeleteCategory(category._id)}
                     className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -325,33 +349,50 @@ const Categories = () => {
             </div>
             
             <div>
-              <Label htmlFor="image">Image URL (Optional)</Label>
+              <Label htmlFor="image">Category Image</Label>
               <Input
                 id="image"
-                value={formData.image}
-                onChange={(e) => setFormData((prev) => ({ ...prev, image: e.target.value }))}
-                placeholder="https://example.com/image.jpg"
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  setFormData((prev) => ({ ...prev, image: files }));
+                }}
+                className="cursor-pointer"
               />
             </div>
 
             <div>
-              <Label htmlFor="averagePrice">Average Price (in {currency})</Label>
-              <Input
-                id="averagePrice"
-                type="number"
-                step="0.01"
-                value={formData.averagePrice}
-                onChange={(e) => setFormData((prev) => ({ ...prev, averagePrice: parseFloat(e.target.value) }))}
-                placeholder={currency === "USD" ? "e.g., 5.99" : "e.g., 7800"}
-              />
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value: 'active' | 'inactive') => 
+                  setFormData(prev => ({ ...prev, status: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
-                {editingCategory ? "Update Category" : "Create Category"}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {editingCategory ? "Updating..." : "Creating..."}
+                  </>
+                ) : (
+                  editingCategory ? "Update Category" : "Create Category"
+                )}
               </Button>
             </DialogFooter>
           </form>
