@@ -11,12 +11,16 @@ const verifySellerToken = (req, res, next) => {
                 return res.status(403).json({ message: 'Token is not valid' });
             }
 
+            // Check if the decoded token has isAdmin flag
             if (!decoded.isAdmin) {
                 return res.status(403).json({ message: 'Access denied. Admins only.' });
             }
 
+            // Set both user and admin properties
             req.user = decoded;
+            req.admin = decoded;
             req.adminId = decoded.adminId;
+            req.userId = decoded.adminId; // Ensure userId is also set for compatibility
 
             next();
         });

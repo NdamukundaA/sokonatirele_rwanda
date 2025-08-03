@@ -6,30 +6,45 @@ const jwt = require('jsonwebtoken');
 // middleware
 dotenv.config();
 
-// Login Admin
+// Lgin Admin
 const loginAdmin = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password} = req.body;
+
+        // Validate request body
+        if (!email || !password) {
+            return res.status(400).json({ message: "Email and password are required" }); 
+        }
 
         // Check if admin exists
-        const admin = await Admin.findOne({ email });
+        const admin = await Admin.findOne({ email});
+
         if (!admin) {
             return res.status(404).json({ message: "Admin not found" });
         }
 
-        // Verify password
-        const isPasswordValid = await bcrypt.compare(password, admin.password);
+        // Varify password
+        const isPasswordValid = await bcrypt.compare(password, admin.password)
         if (!isPasswordValid) {
             return res.status(401).json({ message: "Invalid password" });
         }
 
+        // Validate Secret Key
+        if (!process.env.SECRETKEY) {
+            return res.status(500).json({ message: "Server configuration error" });
+        }
+
         // Generate JWT token
         const token = jwt.sign(
-            { userId: admin._id, isAdmin: admin.isAdmin },
-            process.env.JWT_SECRET,
+            {
+                adminId: admin._id,
+                isAdmin: admin.isAdmin
+            }, 
+            process.env.SECRETKEY,
             { expiresIn: '24h' }
         );
 
+        // Return response
         res.status(200).json({
             message: "Login successful",
             token,
@@ -37,22 +52,35 @@ const loginAdmin = async (req, res) => {
                 id: admin._id,
                 fullName: admin.fullName,
                 email: admin.email,
+                phoneNumber: admin.phoneNumber,
                 isAdmin: admin.isAdmin
             }
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+        })
+
     }
-};
+    catch (error) {
+        res.status(500).json({ message: error.message });
+        return console.error({error, message: "Error logging in admin"});
+    }
+}
 
 // Get Admin Profile
 const getAdminProfile = async (req, res) => {
     try {
-        const admin = await Admin.findById(req.admin._id).select('-password');
+        // req.admin is already populated by the middleware
+        const admin = req.admin;
         if (!admin) {
             return res.status(404).json({ message: "Admin not found" });
         }
-        res.status(200).json(admin);
+        // Remove sensitive information
+        const adminProfile = {
+            id: admin._id,
+            fullName: admin.fullName,
+            email: admin.email,
+            phoneNumber: admin.phoneNumber,
+            isAdmin: admin.isAdmin
+        };
+        res.status(200).json(adminProfile);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

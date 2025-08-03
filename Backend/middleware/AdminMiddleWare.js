@@ -13,10 +13,10 @@ const adminMiddleware = async (req, res, next) => {
         const token = authHeader.split(' ')[1];
 
         // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const decoded = jwt.verify(token, process.env.SECRETKEY);
 
         // Find admin user
-        const admin = await Seller.findById(decoded.userId);
+        const admin = await Seller.findById(decoded.adminId || decoded.userId);
 
         // Check if user exists and is admin
         if (!admin || !admin.isAdmin) {

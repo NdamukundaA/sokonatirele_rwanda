@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../middleware/UserTokenVerify');
 const { verifySellerToken } = require('../middleware/SellerTokenVerify.js');
+const adminMiddleware = require('../middleware/AdminMiddleWare.js');
 const {
   placeOrder,
   handleFlutterwaveWebhook,
@@ -25,7 +26,7 @@ router.get('/getOrderDetails/:orderId', verifyToken, getOrderDetails);
 // Flutterwave webhook endpoint
 router.post('/flw-webhook', handleFlutterwaveWebhook);
 
-// Admin routes
+// Admin and  Seller routes
 router.get('/admin/getOrderDetails/:orderId', verifySellerToken, gettingOrderDetailsAdmin);
 router.get('/getAllOrders', verifySellerToken, getAllOrders);
 router.put('/updateOrderStatus/:orderId', verifySellerToken, updateOrderStatus);

@@ -1,3 +1,4 @@
+// models/Admins.js
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
@@ -9,7 +10,7 @@ const SellerSchema = new Schema(
     companyName: { type: String, required: true },
     companyAddress: { type: String, required: true },
     password: { type: String, required: true },
-    isAdmin: { type: Boolean, default: true },
+    isAdmin: { type: Boolean, default: false }
   },
   { timestamps: true }
 );
