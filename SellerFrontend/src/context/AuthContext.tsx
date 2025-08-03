@@ -47,7 +47,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       try {
         // Use the correct admin authentication endpoint
-        const response = await fetch(`${import.meta.env.VITE_API_CONNECTION || 'http://localhost:3000'}/api/admin/is-auth`, {
+        const response = await fetch(`${import.meta.env.VITE_API_CONNECTION || 'http://localhost:3000'}/api/seller/is-auth`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -55,31 +55,67 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           },
         });
 
-        const data = await response.json();
-        console.log('Auth check response:', data);
-        
-        if (response.ok && data.success && data.admin) {
-          const admin = data.admin;
-          setCurrentUser({
-            id: admin._id || admin.id,
-            name: admin.fullName || 'Unknown',
-            email: admin.email || '',
-            phoneNumber: admin.phoneNumber,
-            role: 'admin',
-            createdAt: admin.createdAt || new Date().toISOString(),
-          });
-          setIsAuthenticated(true);
-        } else {
-          throw new Error(data.message || 'Authentication failed');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-      } catch (error) {
+
+        const data = await response.json();
+        console.log('Full auth check response:', data);
+        
+        if (!data) {
+          throw new Error('No data received from server');
+        }
+
+        // Check for different possible response structures
+        const admin = data.admin || data.user || data.seller || data;
+        console.log('Extracted admin data:', admin);
+
+        if (!admin || (typeof admin !== 'object')) {
+          console.error('Invalid admin data structure:', data);
+          throw new Error('Invalid or missing admin data in response');
+        }
+
+        // Check for ID in different possible properties
+        const userId = admin._id || admin.id || admin.userId || admin.sellerId;
+        if (!userId) {
+          console.error('Missing ID in admin data:', admin);
+          throw new Error('Invalid admin data: missing ID');
+        }
+
+        const userData: User = {
+          id: userId,
+          name: admin.fullName || admin.name || admin.displayName || 'Unknown',
+          email: admin.email || '',
+          phoneNumber: admin.phoneNumber || admin.phone || '',
+          role: 'admin' as UserRole,
+          createdAt: admin.createdAt || admin.created_at || new Date().toISOString(),
+        };
+        
+        console.log('Processed user data:', userData);
+        setCurrentUser(userData);
+        setIsAuthenticated(true);
+      } catch (error: any) {
         console.error('Auth check failed:', error);
-        // Only clear auth data if it's an authentication error
-        if (error.message === 'Authentication failed' || error.message.includes('401')) {
+        
+        // Handle different types of errors appropriately
+        if (
+          error.message.includes('401') || 
+          error.message.includes('403') ||
+          error.message.includes('authentication failure') ||
+          error.message.includes('No admin data') ||
+          error.message.includes('Invalid admin data')
+        ) {
+          // Clear auth data for authentication-related errors
           localStorage.removeItem('authToken');
           localStorage.removeItem('admin');
           setIsAuthenticated(false);
           setCurrentUser(null);
+        } else if (error.message.includes('HTTP error! status: 500')) {
+          console.error('Server error during authentication');
+          // Don't clear auth data for server errors
+        } else if (error.message.includes('Failed to fetch')) {
+          console.error('Network error during authentication');
+          // Don't clear auth data for network errors
         }
       } finally {
         setIsLoading(false);
